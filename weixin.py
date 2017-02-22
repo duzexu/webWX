@@ -806,7 +806,7 @@ class WebWeixin(object):
             if msg['raw_msg']['ToUserName'] == 'filehelper':
                 # 文件传输助手
                 dstName = '文件传输助手'
-                self._auto_switch(msg)
+                self._option_switch(msg)
 
             if msg['raw_msg']['FromUserName'][:2] == '@@':
                 # 接收到来自群的消息
@@ -850,7 +850,7 @@ class WebWeixin(object):
                        'message_type':message_type
                         }
         if groupName != None:
-            jsonMessage.append({'groupName':groupName})
+            jsonMessage['groupName'] = groupName
         self._save_revoke_msg(json_msg=jsonMessage)
 
     def handleMsg(self, r):
@@ -929,6 +929,10 @@ class WebWeixin(object):
             elif msgType == 10002:
                 raw_msg = {'raw_msg': msg, 'message': '%s 撤回了一条消息' % name}
                 self._showMsg(raw_msg)
+            elif msgType == 10000:
+                raw_msg = {'raw_msg': msg}
+                self._showMsg(raw_msg)
+                self._system_msg_operation(raw_msg)
             else:
                 logging.debug('[*] 该消息类型为: %d，可能是表情，图片, 链接或红包: %s' %
                               (msg['MsgType'], json.dumps(msg)))
@@ -1261,7 +1265,7 @@ class WebWeixin(object):
 
         return u"知道啦"
 
-    def _auto_switch(self, msg):
+    def _option_switch(self, msg):
         msg_type = msg['raw_msg']['MsgType']
         content = msg['raw_msg']['Content'].replace(
             '&lt;', '<').replace('&gt;', '>')
@@ -1316,6 +1320,19 @@ class WebWeixin(object):
                     else:
                         break;
             self.msgRecordList.append(json_msg)
+
+    def _system_msg_operation(self, raw_msg):
+        content = raw_msg['raw_msg']['Content']
+        status = raw_msg['raw_msg']['Status']
+        if status == 3:
+            name = content.split('\"')[1]
+            msg = '欢迎 %s 入群，么么哒' % name
+            self.webwxsendmsg(msg, to=raw_msg['raw_msg']['FromUserName'])
+            print '新人入群'
+        elif status == 4:
+            print '有人退群'
+        else:
+            print '状态码'+status
 
 class UnicodeStreamFilter:
 
