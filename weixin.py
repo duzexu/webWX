@@ -538,6 +538,115 @@ class WebWeixin(object):
         logging.debug(json.dumps(dic, indent=4))
         return dic['BaseResponse']['Ret'] == 0
 
+    def webwxsetremarkname(self,uid,remarkname):#设置联系人的备注名
+        url = self.base_uri + '/webwxoplog?lang=zh_CN&pass_ticket=%s' \
+                              % (self.pass_ticket)
+        params = {
+            'BaseRequest': self.base_request,
+            'CmdId': 2,
+            'RemarkName': remarkname,
+            'UserName': uid
+        }
+        data = json.dumps(params, ensure_ascii=False).encode('utf8')
+        r = requests.post(url, data=data, headers=headers)
+        dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
+        return dic['BaseResponse']['Ret'] == 0
+
+    def webwx_apply_useradd_request(self,RecommendInfo):
+        url = self.base_uri + '/webwxverifyuser?r='+str(int(time.time()))+'&lang=zh_CN'
+        params = {
+            "BaseRequest": self.base_request,
+            "Opcode": 3,
+            "VerifyUserListSize": 1,
+            "VerifyUserList": [
+                {
+                    "Value": RecommendInfo['UserName'],
+                    "VerifyUserTicket": RecommendInfo['Ticket']             }
+            ],
+            "VerifyContent": "",
+            "SceneListCount": 1,
+            "SceneList": [
+                33
+            ],
+            "skey": self.skey
+        }
+        headers = {'content-type': 'application/json; charset=UTF-8'}
+        data = json.dumps(params, ensure_ascii=False).encode('utf8')
+        r = requests.post(url, data=data, headers=headers)
+        dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
+        return dic['BaseResponse']['Ret'] == 0
+
+    def webwx_add_user_to_group(self,uid,gid):
+        """
+        将好友加入到群聊中
+        """
+        url = self.base_uri + '/webwxupdatechatroom?fun=addmember&pass_ticket=%s' % self.pass_ticket
+        params = {
+            "AddMemberList": uid,
+            "ChatRoomName": gid,
+            "BaseRequest": self.base_request
+        }
+        headers = {'content-type': 'application/json; charset=UTF-8'}
+        data = json.dumps(params, ensure_ascii=False).encode('utf8')
+        r = requests.post(url, data=data, headers=headers)
+        dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
+        return dic['BaseResponse']['Ret'] == 0
+
+    def webwx_invite_user_to_group(self,uid,gid):
+        """
+        将好友加入到群中。对人数多的群，需要调用此方法。
+        拉人时，可以先尝试使用webwx_add_user_to_group方法，当调用失败(Ret=1)时，再尝试调用此方法。
+        """
+        url = self.base_uri + '/webwxupdatechatroom?fun=invitemember&pass_ticket=%s' % self.pass_ticket
+        params = {
+            "InviteMemberList": uid,
+            "ChatRoomName": gid,
+            "BaseRequest": self.base_request
+        }
+        headers = {'content-type': 'application/json; charset=UTF-8'}
+        data = json.dumps(params, ensure_ascii=False).encode('utf8')
+        r = requests.post(url, data=data, headers=headers)
+        dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
+        return dic['BaseResponse']['Ret'] == 0
+
+    def webwx_remove_user_from_group(self,uid,gid):
+        """
+        将群用户从群中剔除，只有群管理员有权限
+        """
+        url = self.base_uri + '/webwxupdatechatroom?fun=delmember&pass_ticket=%s' % self.pass_ticket
+        params ={
+            "DelMemberList": uid,
+            "ChatRoomName": gid,
+            "BaseRequest": self.base_request
+        }
+        headers = {'content-type': 'application/json; charset=UTF-8'}
+        data = json.dumps(params, ensure_ascii=False).encode('utf8')
+        r = requests.post(url, data=data, headers=headers)
+        dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
+        return dic['BaseResponse']['Ret'] == 0
+
+    def webwx_set_group_name(self,gid,gname):
+        """
+        设置群聊名称
+        """
+        url = self.base_uri + '/webwxupdatechatroom?fun=modtopic&pass_ticket=%s' % self.pass_ticket
+        params ={
+            "NewTopic": gname,
+            "ChatRoomName": gid,
+            "BaseRequest": self.base_request
+        }
+        headers = {'content-type': 'application/json; charset=UTF-8'}
+        data = json.dumps(params, ensure_ascii=False).encode('utf8')
+        r = requests.post(url, data=data, headers=headers)
+        dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
+        return dic['BaseResponse']['Ret'] == 0
+
     def _saveFile(self, filename, data, api=None):
         fn = filename
         if self.saveSubFolders[api]:
