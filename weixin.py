@@ -420,7 +420,7 @@ class WebWeixin(object):
         return dic['BaseResponse']['Ret'] == 0
 
     def webwxuploadmedia(self, image_name):
-        url = 'https://file2.wx.qq.com/cgi-bin/mmwebwx-bin/webwxuploadmedia?f=json'
+        url = 'https://file.wx.qq.com/cgi-bin/mmwebwx-bin/webwxuploadmedia?f=json'
         # 计数器
         self.media_count = self.media_count + 1
         # 文件名
@@ -475,14 +475,14 @@ class WebWeixin(object):
         )
 
         headers = {
-            'Host': 'file2.wx.qq.com',
+            'Host': 'file.wx.qq.com',
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:42.0) Gecko/20100101 Firefox/42.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
-            'Referer': 'https://wx2.qq.com/',
+            'Referer': 'https://wx.qq.com/',
             'Content-Type': multipart_encoder.content_type,
-            'Origin': 'https://wx2.qq.com',
+            'Origin': 'https://wx.qq.com',
             'Connection': 'keep-alive',
             'Pragma': 'no-cache',
             'Cache-Control': 'no-cache'
@@ -490,12 +490,13 @@ class WebWeixin(object):
 
         r = requests.post(url, data=multipart_encoder, headers=headers)
         response_json = r.json()
+        logging.debug(json.dumps(response_json, indent=4))
         if response_json['BaseResponse']['Ret'] == 0:
             return response_json
         return None
 
     def webwxsendmsgimg(self, user_id, media_id):
-        url = 'https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxsendmsgimg?fun=async&f=json&pass_ticket=%s' % self.pass_ticket
+        url = 'https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsendmsgimg?fun=async&f=json&pass_ticket=%s' % self.pass_ticket
         clientMsgId = str(int(time.time() * 1000)) + \
             str(random.random())[:5].replace('.', '')
         data_json = {
@@ -513,10 +514,11 @@ class WebWeixin(object):
         data = json.dumps(data_json, ensure_ascii=False).encode('utf8')
         r = requests.post(url, data=data, headers=headers)
         dic = r.json()
+        logging.debug(json.dumps(dic, indent=4))
         return dic['BaseResponse']['Ret'] == 0
 
     def webwxsendmsgemotion(self, user_id, media_id):
-        url = 'https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxsendemoticon?fun=sys&f=json&pass_ticket=%s' % self.pass_ticket
+        url = 'https://wx.qq.com/cgi-bin/mmwebwx-bin/webwxsendemoticon?fun=sys&f=json&pass_ticket=%s' % self.pass_ticket
         clientMsgId = str(int(time.time() * 1000)) + \
             str(random.random())[:5].replace('.', '')
         data_json = {
@@ -658,6 +660,15 @@ class WebWeixin(object):
             with open(fn, 'wb') as f:
                 f.write(data)
                 f.close()
+        return fn
+
+    def _getFile(self, filename, api=None):
+        fn = filename
+        if self.saveSubFolders[api]:
+            dirName = os.path.join(self.saveFolder, self.saveSubFolders[api])
+            fn = os.path.join(dirName, filename)
+        else:
+            fn = os.path.join(self.saveFolder, filename)
         return fn
 
     def webwxgeticon(self, id):
@@ -833,11 +844,11 @@ class WebWeixin(object):
 
         if groupName != None:
             print '%s |%s| %s -> %s: %s' % (message_id, groupName.strip(), srcName.strip(), dstName.strip(), content.replace('<br/>', '\n'))
-            logging.info('%s |%s| %s -> %s: %s' % (message_id, groupName.strip(),
+            logging.debug('%s |%s| %s -> %s: %s' % (message_id, groupName.strip(),
                                                    srcName.strip(), dstName.strip(), content.replace('<br/>', '\n')))
         else:
             print '%s %s -> %s: %s' % (message_id, srcName.strip(), dstName.strip(), content.replace('<br/>', '\n'))
-            logging.info('%s %s -> %s: %s' % (message_id, srcName.strip(),
+            logging.debug('%s %s -> %s: %s' % (message_id, srcName.strip(),
                                               dstName.strip(), content.replace('<br/>', '\n')))
 
         # 保存撤回消息
@@ -1304,6 +1315,27 @@ class WebWeixin(object):
             if len(self.msgRecordList) > 0:
                 for msg in self.msgRecordList:
                     if oldMsgid.text == msg['message_id']:
+                        msgType = msg['message_type']
+                        name = msg['srcName']
+                        content = msg['content']
+                        msgid = msg['message_id']
+                        if 'groupName' in msg.keys():
+                            message = '群聊[%s]里的[%s]' % msg['groupName'], name
+                        else:
+                            message = '[%s]' % name
+                        self.webwxsendmsg(message + '撤回了一条消息:' + content)
+                        if msgType == 3:
+                            imagePath = self._getFile('img_' + msgid + '.jpg',api='webwxgetmsgimg')
+                            response = self.webwxuploadmedia(imagePath)
+                            media_id = ""
+                            if response is not None:
+                                media_id = response['MediaId']
+                                self.webwxsendmsgimg('filehelper', media_id)
+                        elif msgType == 34:
+                            voicePath = self._getFile('voice_' + msgid + '.mp3',api='webwxgetvoice')
+                        elif msgType == 62:
+                            video = self.webwxgetvideo(msgid)
+
                         with open(os.path.join(self.saveFolder,'revokeMsgList.json'), 'a') as f:
                             f.write(json.dumps(msg, ensure_ascii=False)+'\n')
                             print '[*] 有一条撤销消息已储存到文件: revokeMsgList'
@@ -1359,8 +1391,8 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     if not sys.platform.startswith('win'):
         import coloredlogs
-        # coloredlogs.install(level='DEBUG')
-        coloredlogs.install()
+        coloredlogs.install(level='DEBUG')
+        # coloredlogs.install()
 
     webwx = WebWeixin()
     webwx.start()
